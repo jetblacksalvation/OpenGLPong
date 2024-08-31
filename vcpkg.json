@@ -1,0 +1,12 @@
+{
+  "dependencies": [
+    "vcpkg-cmake",
+    "vcpkg-cmake-config",
+    "cxxopts",
+    "opengl",
+    "glfw3",
+    "glew",
+    "glm",
+    "xsimd"
+  ]
+}
