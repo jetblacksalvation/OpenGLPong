@@ -1,8 +1,10 @@
-#include "OpenGLPong.h"
-
+#include "OpenGLPong.hpp"
+#include "stdio.h"
+#include "stdlib.h"
 
 int main()
 {
+	srand(time(NULL));
 	puts("running!\n");
 	struct ShaderPipelineStruct shaderPipeline;
 

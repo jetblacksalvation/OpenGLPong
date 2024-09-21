@@ -1,6 +1,6 @@
 include(FetchContent)
 cmake_minimum_required(VERSION 3.18)
-project(OpenGLPong LANGUAGES C)
+project(OpenGLPong LANGUAGES CXX C)
 
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -19,8 +19,8 @@ endif()
 
 # Collect all source and header files
 set(SOURCE_FILES
-    "OpenGLPong/Source/OpenGLPong.c"
- "OpenGLPong/Source/main.c")
+    "OpenGLPong/Source/OpenGLPong.cpp"
+ "OpenGLPong/Source/main.cpp")
 include_directories("OpenGLPong/Includes")
 
 
@@ -30,7 +30,7 @@ add_executable(OpenGLPong ${SOURCE_FILES} ${HEADER_FILES})
 
 # Set the C++ standard to 23 if CMake version is greater than 3.12
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET OpenGLPong PROPERTY CXX_STANDARD 23 C)
+  set_property(TARGET OpenGLPong PROPERTY CXX_STANDARD 23 CXX C)
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/src/Includes)

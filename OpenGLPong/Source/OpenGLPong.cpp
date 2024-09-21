@@ -1,10 +1,15 @@
 ﻿// OpenGLPong.cpp : Defines the entry point for the application.
 //
 
-#include "OpenGLPong.h"
+#include "OpenGLPong.hpp"
 #include "stdio.h"
 #include "stdlib.h"
 #include "memory.h"
+#include <glm\glm.hpp>
+#include <glm\ext.hpp>
+#include <glm\gtc\type_ptr.hpp>
+#include <glm\gtx\rotate_vector.hpp>
+#include <iostream>
 static GLuint compile_glsl_string(GLenum type, GLchar* const source)
 {
     GLuint shader;
@@ -37,7 +42,7 @@ void get_glsl_error(struct ShaderPipelineStruct* shaderStruct,GLuint shaderid)
     }
 }
 
-void InitScreen(struct ShaderPipelineStruct * this) 
+void InitScreen(struct ShaderPipelineStruct * This) 
 {
     // Initialize GLFW
     if (!glfwInit()) {
@@ -45,15 +50,15 @@ void InitScreen(struct ShaderPipelineStruct * this)
         return;
     }
     // Create a windowed mode window and its OpenGL context
-    this->_window = glfwCreateWindow(800, 600, "Shin Megami Tensei", NULL, NULL);
-    if (!this->_window) {
+    This->_window = glfwCreateWindow(800, 600, "Shin Megami Tensei", NULL, NULL);
+    if (!This->_window) {
         puts("Failed to create GLFW window");
         glfwTerminate();
         return;
     }
 
     // Make the window's context current
-    glfwMakeContextCurrent(this->_window);
+    glfwMakeContextCurrent(This->_window);
     int version = gladLoadGL(glfwGetProcAddress);
 
     if (version == 0) {
@@ -68,24 +73,28 @@ void InitScreen(struct ShaderPipelineStruct * this)
     
 
     struct ShaderCompileSources shaders;
-    shaders.vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 vertexColor;\n"
-"varying highp vec3 color;\n"
-"void main()\n"
-"{\n"
-"gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-"color = vertexColor;\n"
-"}\n";
-    shaders.fragmentShaderSource =
-        "#version 330 core\n"
-        "out vec4 FragColor;\n"
-        "varying lowp vec3 color;\n"
-        "void main()\n"
-        "{\n"
-        "\n"
-        "    FragColor = vec4(color, 1.0f); // Change to red for testing\n"
-        "}\n";
+    shaders.vertexShaderSource = (char* )R"(
+#version 330 core
+uniform vec3 aPos;        
+uniform vec3 vertexColor; 
+varying highp vec3 color;
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    color = vertexColor;
+}
+)";
+    shaders.fragmentShaderSource = (char*)R"(
+#version 330 core
+out vec4 FragColor;
+varying lowp vec3 color;
+void main()
+{
+    FragColor = vec4(color, 1.0f); // Change to red for testing
+}
+)";
+
+
     // Build and compile the shaders
     // 
     shaders.vertices = malloc(sizeof(float) * (3 * 6));
@@ -95,49 +104,72 @@ void InitScreen(struct ShaderPipelineStruct * this)
          0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // Bottom-right corner
         -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  // Bottom-left corner
     };
-    memcpy_s(shaders.vertices, 3 * 6, vertices, 3 * 6);
 
-    CompileShaders(this, shaders);
+
+    CompileShaders(This, shaders);
     
 
-    while (!glfwWindowShouldClose(this->_window)) {
+    while (!glfwWindowShouldClose(This->_window)) {
         // Input
-        if (glfwGetKey(this->_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(this->_window, 1);
+        if (glfwGetKey(This->_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(This->_window, 1);
 
         // Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Use the shader program
-        glUseProgram(this->_shaderProgram);
+        glUseProgram(This->_shaderProgram);
 
-        // Bind the VAO
-        glBindVertexArray(this->_VAO);
+        glPointSize(10.0f); // Increase the point size to 10.0
 
-        // Draw the triangle
-        glDrawArrays(GL_TRIANGLES, 0, 6);  // or glDrawElements if using indices
+        GLuint pos_id = glGetUniformLocation(This->_shaderProgram, "aPos");
+        GLuint vertexColor_id = glGetUniformLocation(This->_shaderProgram, "vertexColor");
+        if(pos_id == GL_INVALID_VALUE)std::cout<<"fucked\n";
+        if(vertexColor_id == GL_INVALID_VALUE)std::cout << "fucked\n";;
+        // For Vertex 1 (Top-right corner)
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), 0.5f, 0.5f, 0.0f);
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 1.0f, 0.0f, 0.0f);
+
+        // Draw the first vertex
+
+        // For Vertex 2 (Bottom-right corner)
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), 0.5f, -0.5f, 0.0f);
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 0.0f, 1.0f, 0.0f);
+
+        // Draw the second vertex
+
+        // For Vertex 3 (Bottom-left corner)
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), -0.5f, -0.5f, 0.0f);
+        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 0.0f, 0.0f, 1.0f);
+
+        // Draw the third vertex
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+        //// Draw the triangle
+        //glDrawArrays(GL_TRIANGLES, 0, 6);  // or glDrawElements if using indices
         // Swap front and back buffers
-        glfwSwapBuffers(this->_window);
+        glfwSwapBuffers(This->_window);
 
         // Poll for and process events
-        glfwPollEvents();  // Ensure this is called to handle window events
+        glfwPollEvents();  // Ensure This is called to handle window events
 
         // Optional: Limit the frame rate
         
-        //std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
+        //std::This_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
     }
 
     // Cleanup
-    glDeleteVertexArrays(1, &this->_VAO);
-    glDeleteBuffers(1, &this->_VBO);
-    glDeleteProgram(this->_shaderProgram);
+    glDeleteVertexArrays(1, &This->_VAO);
+    glDeleteBuffers(1, &This->_VBO);
+    glDeleteProgram(This->_shaderProgram);
 
-    glfwDestroyWindow(this->_window);
+    glfwDestroyWindow(This->_window);
     glfwTerminate();
 
 }
-void CompileShaders(struct ShaderPipelineStruct* this, struct ShaderCompileSources sources)
+void CompileShaders(struct ShaderPipelineStruct* This, struct ShaderCompileSources sources)
 {
     // Build and compile the shaders
     unsigned int vertexShader = compile_glsl_string(GL_VERTEX_SHADER, (GLchar*)sources.vertexShaderSource);
@@ -145,40 +177,40 @@ void CompileShaders(struct ShaderPipelineStruct* this, struct ShaderCompileSourc
     glBindAttribLocation(vertexShader, 0, "aPos");
     glBindAttribLocation(vertexShader, 1, "vertexColor");
 
-    get_glsl_error(this, vertexShader);
-    puts(this->_shaderInfo);
+    get_glsl_error(This, vertexShader);
+    puts(This->_shaderInfo);
 
     unsigned int fragmentShader = compile_glsl_string(GL_FRAGMENT_SHADER, (GLchar*)sources.fragmentShaderSource);
-    get_glsl_error(this, fragmentShader);
-    puts(this->_shaderInfo);
+    get_glsl_error(This, fragmentShader);
+    puts(This->_shaderInfo);
 
     // Link the shaders into a program
-    this->_shaderProgram = glCreateProgram();
-    glAttachShader(this->_shaderProgram, vertexShader);
-    glAttachShader(this->_shaderProgram, fragmentShader);
+    This->_shaderProgram = glCreateProgram();
+    glAttachShader(This->_shaderProgram, vertexShader);
+    glAttachShader(This->_shaderProgram, fragmentShader);
 
-    glLinkProgram(this->_shaderProgram);
+    glLinkProgram(This->_shaderProgram);
 
-    get_glsl_error(this, this->_shaderProgram);
-    puts(this->_shaderInfo);
+    get_glsl_error(This, This->_shaderProgram);
+    puts(This->_shaderInfo);
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
+    
     // Set up vertex data and configure vertex attributes
     float vertices[] = {
         // Positions        // Colors
-         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // Top-right corner
+         0.0f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  // Top-right corner
          0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // Bottom-right corner
         -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  // Bottom-left corner
     };
+    
+    
+    glGenVertexArrays(1, &This->_VAO);
+    glGenBuffers(1, &This->_VBO);
 
+    glBindVertexArray(This->_VAO);
 
-    glGenVertexArrays(1, &this->_VAO);
-    glGenBuffers(1, &this->_VBO);
-
-    glBindVertexArray(this->_VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, this->_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, This->_VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     uint64_t offset = (sizeof(vertices) / sizeof(vertices[0]));
 
