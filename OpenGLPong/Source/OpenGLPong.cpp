@@ -75,8 +75,8 @@ void InitScreen(struct ShaderPipelineStruct * This)
     struct ShaderCompileSources shaders;
     shaders.vertexShaderSource = (char* )R"(
 #version 330 core
-uniform vec3 aPos;        
-uniform vec3 vertexColor; 
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 vertexColor;
 varying highp vec3 color;
 void main()
 {
@@ -106,8 +106,9 @@ void main()
     };
 
 
-    CompileShaders(This, shaders);
-    
+    This->_shader_functions.on_shader_load(This, &shaders);
+    This->_shader_functions.hasRun = 1; 
+
 
     while (!glfwWindowShouldClose(This->_window)) {
         // Input
@@ -121,34 +122,13 @@ void main()
         // Use the shader program
         glUseProgram(This->_shaderProgram);
 
-        glPointSize(10.0f); // Increase the point size to 10.0
+        // Bind the VAO
+        glBindVertexArray(This->_VAO);
 
-        GLuint pos_id = glGetUniformLocation(This->_shaderProgram, "aPos");
-        GLuint vertexColor_id = glGetUniformLocation(This->_shaderProgram, "vertexColor");
-        if(pos_id == GL_INVALID_VALUE)std::cout<<"fucked\n";
-        if(vertexColor_id == GL_INVALID_VALUE)std::cout << "fucked\n";;
-        // For Vertex 1 (Top-right corner)
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), 0.5f, 0.5f, 0.0f);
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 1.0f, 0.0f, 0.0f);
+        // Draw the triangle
+        This->_shader_functions.every_loop_function(This, &shaders);
 
-        // Draw the first vertex
-
-        // For Vertex 2 (Bottom-right corner)
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), 0.5f, -0.5f, 0.0f);
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 0.0f, 1.0f, 0.0f);
-
-        // Draw the second vertex
-
-        // For Vertex 3 (Bottom-left corner)
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "aPos"), -0.5f, -0.5f, 0.0f);
-        glUniform3f(glGetUniformLocation(This->_shaderProgram, "vertexColor"), 0.0f, 0.0f, 1.0f);
-
-        // Draw the third vertex
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-
-
-        //// Draw the triangle
-        //glDrawArrays(GL_TRIANGLES, 0, 6);  // or glDrawElements if using indices
+        
         // Swap front and back buffers
         glfwSwapBuffers(This->_window);
 
@@ -156,7 +136,7 @@ void main()
         glfwPollEvents();  // Ensure This is called to handle window events
 
         // Optional: Limit the frame rate
-        
+
         //std::This_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
     }
 
@@ -169,10 +149,9 @@ void main()
     glfwTerminate();
 
 }
-void CompileShaders(struct ShaderPipelineStruct* This, struct ShaderCompileSources sources)
+void CompileShaders(struct ShaderPipelineStruct* This, struct ShaderCompileSources* sources)
 {
-    // Build and compile the shaders
-    unsigned int vertexShader = compile_glsl_string(GL_VERTEX_SHADER, (GLchar*)sources.vertexShaderSource);
+    unsigned int vertexShader = compile_glsl_string(GL_VERTEX_SHADER, (GLchar*)sources->vertexShaderSource);
 
     glBindAttribLocation(vertexShader, 0, "aPos");
     glBindAttribLocation(vertexShader, 1, "vertexColor");
@@ -180,7 +159,7 @@ void CompileShaders(struct ShaderPipelineStruct* This, struct ShaderCompileSourc
     get_glsl_error(This, vertexShader);
     puts(This->_shaderInfo);
 
-    unsigned int fragmentShader = compile_glsl_string(GL_FRAGMENT_SHADER, (GLchar*)sources.fragmentShaderSource);
+    unsigned int fragmentShader = compile_glsl_string(GL_FRAGMENT_SHADER, (GLchar*)sources->fragmentShaderSource);
     get_glsl_error(This, fragmentShader);
     puts(This->_shaderInfo);
 
@@ -195,28 +174,76 @@ void CompileShaders(struct ShaderPipelineStruct* This, struct ShaderCompileSourc
     puts(This->_shaderInfo);
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-    
+
     // Set up vertex data and configure vertex attributes
-    float vertices[] = {
-        // Positions        // Colors
-         0.0f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  // Top-right corner
-         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // Bottom-right corner
-        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  // Bottom-left corner
-    };
-    
-    
-    glGenVertexArrays(1, &This->_VAO);
-    glGenBuffers(1, &This->_VBO);
-
-    glBindVertexArray(This->_VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, This->_VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    uint64_t offset = (sizeof(vertices) / sizeof(vertices[0]));
+    This->_shader_functions.every_loop_function(This, sources);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+}
+void set_gl_buffer(struct ShaderPipelineStruct* This, struct ShaderCompileSources* sources)
+{
+    if (This->_shader_functions.hasRun)
+    {
+        glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
+        return;
+    }
+    unsigned int   EBO;
 
+
+    glGenVertexArrays(1, &This->_VAO);
+    glGenBuffers(1, &This->_VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(This->_VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, This->_VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    float vertices[] = {
+             0.3f,  0.5f, 0.0f,  // top right
+             0.5f,  0.0f, 0.0f,  // middle right
+             0.3f, -0.5f, 0.0f,  // bottom right
+            -0.3f, -0.5f, 0.0f,  // bottom left
+            -0.5f,  0.0f, 0.0f,  // middle left
+            -0.3f,  0.5f, 0.0f   // top left 
+    };
+    unsigned int indices[] = {
+        0, 5, 4, // first triangle
+        0, 4, 1, // second triangle
+        1, 4, 3, // third triangle
+        1, 3, 2  // forth triangle
+    };
+
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+}
+void set_gl_buff_triangle(struct ShaderPipelineStruct* This, struct ShaderCompileSources* sources)
+{
+    float vertices[] = {
+        -0.5f, -0.5f, 0.0f,
+         0.0f,  0.5f, 0.0f,
+         0.5f, -0.5f, 0.0f,
+    };
+
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
+    glEnableVertexAttribArray(0);
 }
